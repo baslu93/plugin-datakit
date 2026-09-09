@@ -71,18 +71,18 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
 
     this.spinner.stop('done');
 
-    // ── 2. List and read DataPackageKitObject components via Metadata API ───
+    // ── 2. SOQL to find kit object names, then Metadata API read ────────────
     this.spinner.start('Reading DataPackageKitObjects');
 
-    const listed = await connection.metadata.list([{ type: 'DataPackageKitObject' }]);
-    const allEntries = listed ? (Array.isArray(listed) ? listed : [listed]) as Array<{fullName: string}> : [];
-    const allNames = allEntries.map(e => e.fullName);
+    const soqlResult = await connection.query<{ DeveloperName: string }>(
+      `SELECT DeveloperName FROM DataPackageKitObject WHERE ParentDataPackageKitDefinition.DeveloperName = '${developerName}'`
+    );
+    const kitObjectNames = soqlResult.records.map(r => r.DeveloperName);
 
     let kitObjects: DataPackageKitObjectRecord[] = [];
-    if (allNames.length > 0) {
-      const raw = await connection.metadata.read('DataPackageKitObject' as never, allNames);
-      const allRecords = (Array.isArray(raw) ? raw : [raw]) as DataPackageKitObjectRecord[];
-      kitObjects = allRecords.filter(r => r.parentDataPackageKitDefinitionName === developerName);
+    if (kitObjectNames.length > 0) {
+      const raw = await connection.metadata.read('DataPackageKitObject' as never, kitObjectNames);
+      kitObjects = (Array.isArray(raw) ? raw : [raw]) as DataPackageKitObjectRecord[];
     }
 
     this.spinner.stop(`${kitObjects.length} found`);
