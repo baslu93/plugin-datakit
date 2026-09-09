@@ -4,11 +4,11 @@ Deploy a DataKit to the target org.
 
 # description
 
-Reads a DataPackageDefinition by developer name via the Metadata API, builds the component payload, and calls the sfdatakit__DeployDataKitComponents flow API to deploy all components to the connected Salesforce org.
+Reads a DataPackageKitDefinition by developer name via the Metadata API, builds the component payload, and calls the sfdatakit__DeployDataKitComponents flow API to deploy all components to the connected Salesforce org.
 
 # flags.developer-name.summary
 
-Developer name of the DataPackageDefinition to deploy.
+Developer name of the DataPackageKitDefinition to deploy.
 
 # flags.target-org.summary
 
@@ -38,7 +38,7 @@ No target org specified and no default org found. Use --target-org or set a defa
 
 # error.datakitNotFound
 
-DataPackageDefinition with developer name "%s" not found in org "%s".
+DataPackageKitDefinition with developer name "%s" not found in org "%s".
 
 # error.deployFailed
 

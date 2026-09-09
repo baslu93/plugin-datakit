@@ -1,5 +1,5 @@
-// Salesforce Metadata API representation of the DataPackageDefinition type.
-// Returned by connection.metadata.read('DataPackageDefinition', developerName).
+// Salesforce Metadata API representation of the DataPackageKitDefinition type.
+// Returned by connection.metadata.read('DataPackageKitDefinition', developerName).
 
 export interface BundleCRMConfig {
   orgId: string;
@@ -125,8 +125,8 @@ export type DataPackageComponent =
   | MarketSegmentComponent
   | SemanticModelComponent;
 
-// Shape returned by connection.metadata.read('DataPackageDefinition', developerName)
-export interface DataPackageDefinitionMetadata {
+// Shape returned by connection.metadata.read('DataPackageKitDefinition', developerName)
+export interface DataPackageKitDefinitionMetadata {
   fullName: string;
   dataKitName: string;
   dataSpace?: string;

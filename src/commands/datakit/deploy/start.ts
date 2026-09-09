@@ -4,7 +4,7 @@ import { Duration } from '@salesforce/kit';
 import { mapComponents } from '../../../helpers/componentMapper.js';
 import { pollDeploymentStatus, TERMINAL_FAILURE } from '../../../helpers/deployPoller.js';
 import {
-  DataPackageDefinitionMetadata,
+  DataPackageKitDefinitionMetadata,
   DeployDataKitRequest,
   DeployDataKitResponse,
 } from '../../../types/datapackagedefinition.js';
@@ -57,11 +57,11 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
     const connection = org.getConnection(flags['api-version']);
     const orgId = org.getOrgId();
 
-    // ── 1. Read DataPackageDefinition via Metadata API ──────────────────────
-    this.spinner.start(`Reading DataPackageDefinition "${developerName}"`);
+    // ── 1. Read DataPackageKitDefinition via Metadata API ──────────────────────
+    this.spinner.start(`Reading DataPackageKitDefinition "${developerName}"`);
 
-    // 'DataPackageDefinition' is not yet in @salesforce/core's MetadataType union
-    const [definition] = await connection.metadata.read('DataPackageDefinition' as never, [developerName]) as DataPackageDefinitionMetadata[];
+    // 'DataPackageKitDefinition' is not yet in @salesforce/core's MetadataType union
+    const [definition] = await connection.metadata.read('DataPackageKitDefinition' as never, [developerName]) as DataPackageKitDefinitionMetadata[];
 
     if (!definition?.fullName) {
       this.spinner.stop('not found');
@@ -74,7 +74,7 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
     const components = mapComponents(definition.dataPackageComponents);
 
     if (components.length === 0) {
-      this.warn(`DataPackageDefinition "${developerName}" has no components defined.`);
+      this.warn(`DataPackageKitDefinition "${developerName}" has no components defined.`);
     }
 
     const payload: DeployDataKitRequest = {
