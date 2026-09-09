@@ -81,8 +81,11 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
 
     let kitObjects: DataPackageKitObjectRecord[] = [];
     if (kitObjectNames.length > 0) {
-      const raw = await connection.metadata.read('DataPackageKitObject' as never, kitObjectNames);
-      kitObjects = (Array.isArray(raw) ? raw : [raw]) as DataPackageKitObjectRecord[];
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < kitObjectNames.length; i += BATCH_SIZE) {
+        const raw = await connection.metadata.read('DataPackageKitObject' as never, kitObjectNames.slice(i, i + BATCH_SIZE));
+        kitObjects.push(...((Array.isArray(raw) ? raw : [raw]) as DataPackageKitObjectRecord[]));
+      }
     }
 
     this.spinner.stop(`${kitObjects.length} found`);
