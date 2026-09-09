@@ -1,106 +1,86 @@
-import {
-  DataPackageComponent,
-  DataStreamBundleComponent,
-  CalculatedInsightComponent,
-  DataLakeObjectComponent,
-  DataTransformComponent,
-  DataGraphComponent,
-  IdentityResolutionComponent,
-  MarketSegmentComponent,
-  SemanticModelComponent,
-  DeployComponentInput,
-} from '../types/datapackagedefinition.js';
+import { DataPackageKitObjectRecord, DeployComponentInput } from '../types/datapackagedefinition.js';
 
-function mapDataStreamBundle(c: DataStreamBundleComponent): DeployComponentInput {
-  if (c.bundleConfig.connectorType === 'CRM') {
+function mapBundle(bundleName: string, dataPlatform: string, orgId: string): DeployComponentInput {
+  if (dataPlatform === 'Salesforce_Sales_and_Service_Cloud') {
     return {
-      orgId: c.bundleConfig.bundleCRMConfig?.orgId,
-      bundleConfig: c.bundleConfig,
+      componentType: 'DataStreamBundle',
+      bundleConfig: {
+        connectorType: 'CRM',
+        bundleName,
+        forceNoRefresh: false,
+        bundleCRMConfig: { orgId },
+      },
     };
   }
+  if (dataPlatform === 'UploadedFiles') {
+    return {
+      componentType: 'DataStreamBundle',
+      bundleConfig: {
+        connectorType: 'MORECONNECTORS',
+        bundleName,
+        forceNoRefresh: false,
+        bundleConnectorFrameworkConfig: { connectionName: 'UploadedFiles' },
+      },
+    };
+  }
+  // Generic connector framework — use dataPlatform as the connection name
   return {
     componentType: 'DataStreamBundle',
-    bundleConfig: c.bundleConfig,
-  };
-}
-
-function mapCalculatedInsight(c: CalculatedInsightComponent): DeployComponentInput {
-  return {
-    componentType: 'CalculatedInsight',
-    calculatedInsightsConfig: {
-      publishInterval: 'NotScheduled',
-      ...c.calculatedInsightsConfig,
+    bundleConfig: {
+      connectorType: 'MORECONNECTORS',
+      bundleName,
+      forceNoRefresh: false,
+      bundleConnectorFrameworkConfig: { connectionName: dataPlatform },
     },
   };
 }
 
-function mapDataLakeObject(c: DataLakeObjectComponent): DeployComponentInput {
-  return {
-    componentType: 'DataLakeObject',
-    dloConfig: c.dloConfig,
-  };
-}
-
-function mapDataTransform(c: DataTransformComponent): DeployComponentInput {
-  return {
-    componentType: 'DataTransform',
-    dataTransformConfig: c.dataTransformConfig,
-  };
-}
-
-function mapDataGraph(c: DataGraphComponent): DeployComponentInput {
-  return {
-    componentType: 'DataGraph',
-    dataGraphConfig: c.dataGraphConfig,
-  };
-}
-
-function mapIdentityResolution(c: IdentityResolutionComponent): DeployComponentInput {
-  return {
-    componentType: 'IdentityResolution',
-    identityResolutionConfig: c.identityResolutionConfig,
-  };
-}
-
-function mapMarketSegment(c: MarketSegmentComponent): DeployComponentInput {
-  return {
-    componentType: 'MarketSegment',
-    marketSegmentConfig: c.marketSegmentConfig,
-  };
-}
-
-function mapSemanticModel(c: SemanticModelComponent): DeployComponentInput {
-  return {
-    componentType: 'SemanticModel',
-    semanticModelConfig: c.semanticModelConfig,
-  };
-}
-
-export function mapComponent(component: DataPackageComponent): DeployComponentInput {
-  switch (component.componentType) {
-    case 'DataStreamBundle':
-      return mapDataStreamBundle(component);
-    case 'CalculatedInsight':
-      return mapCalculatedInsight(component);
-    case 'DataLakeObject':
-      return mapDataLakeObject(component);
-    case 'DataTransform':
-      return mapDataTransform(component);
-    case 'DataGraph':
-      return mapDataGraph(component);
-    case 'IdentityResolution':
-      return mapIdentityResolution(component);
-    case 'MarketSegment':
-      return mapMarketSegment(component);
-    case 'SemanticModel':
-      return mapSemanticModel(component);
-  }
-}
-
 export function mapComponents(
-  raw: DataPackageComponent | DataPackageComponent[] | undefined
+  kitObjects: DataPackageKitObjectRecord[],
+  bundleDefMap: Map<string, string>,
+  orgId: string
 ): DeployComponentInput[] {
-  if (!raw) return [];
-  const list = Array.isArray(raw) ? raw : [raw];
-  return list.map(mapComponent);
+  const components: DeployComponentInput[] = [];
+
+  for (const obj of kitObjects) {
+    const { referenceObjectType, referenceObjectName } = obj.Metadata;
+
+    switch (referenceObjectType) {
+      case 'DataSourceBundleDefinition':
+        components.push(mapBundle(referenceObjectName, bundleDefMap.get(referenceObjectName) ?? '', orgId));
+        break;
+      case 'DLO':
+        components.push({
+          componentType: 'DataLakeObject',
+          dloConfig: { dataSourceObjectDevName: referenceObjectName, apiName: referenceObjectName },
+        });
+        break;
+      case 'DataTransform':
+        components.push({
+          componentType: 'DataTransform',
+          dataTransformConfig: { dataTransformType: 'BATCH', dataTransformDevName: referenceObjectName, apiName: referenceObjectName },
+        });
+        break;
+      case 'CalculatedInsight':
+        components.push({
+          componentType: 'CalculatedInsight',
+          calculatedInsightsConfig: { apiName: referenceObjectName, publishInterval: 'NotScheduled' },
+        });
+        break;
+      case 'IdentityResolution':
+        components.push({
+          componentType: 'IdentityResolution',
+          identityResolutionConfig: { templateDevName: referenceObjectName },
+        });
+        break;
+      case 'DataGraph':
+        components.push({
+          componentType: 'DataGraph',
+          dataGraphConfig: { templateDevName: referenceObjectName },
+        });
+        break;
+    }
+  }
+
+  return components;
 }

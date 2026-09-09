@@ -4,7 +4,9 @@ import { Duration } from '@salesforce/kit';
 import { mapComponents } from '../../../helpers/componentMapper.js';
 import { pollDeploymentStatus, TERMINAL_FAILURE } from '../../../helpers/deployPoller.js';
 import {
-  DataPackageKitDefinitionMetadata,
+  DataPackageDefinitionMetadata,
+  DataPackageKitObjectRecord,
+  DataSourceBundleDefinitionMetadata,
   DeployDataKitRequest,
   DeployDataKitResponse,
 } from '../../../types/datapackagedefinition.js';
@@ -57,11 +59,10 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
     const connection = org.getConnection(flags['api-version']);
     const orgId = org.getOrgId();
 
-    // ── 1. Read DataPackageKitDefinition via Metadata API ──────────────────────
+    // ── 1. Read DataPackageKitDefinition ────────────────────────────────────
     this.spinner.start(`Reading DataPackageKitDefinition "${developerName}"`);
 
-    // 'DataPackageKitDefinition' is not yet in @salesforce/core's MetadataType union
-    const [definition] = await connection.metadata.read('DataPackageKitDefinition' as never, [developerName]) as DataPackageKitDefinitionMetadata[];
+    const [definition] = await connection.metadata.read('DataPackageKitDefinition' as never, [developerName]) as DataPackageDefinitionMetadata[];
 
     if (!definition?.fullName) {
       this.spinner.stop('not found');
@@ -70,18 +71,44 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
 
     this.spinner.stop('done');
 
-    // ── 2. Build deploy payload ──────────────────────────────────────────────
-    const components = mapComponents(definition.dataPackageComponents);
+    // ── 2. Query DataPackageKitObject components via Tooling API ────────────
+    this.spinner.start('Reading DataPackageKitObjects');
 
-    if (components.length === 0) {
+    const { records: kitObjects } = await connection.tooling.query<DataPackageKitObjectRecord>(
+      `SELECT Metadata FROM DataPackageKitObject WHERE ParentDataPackageKitDefinition.DeveloperName = '${developerName}'`
+    );
+
+    this.spinner.stop(`${kitObjects.length} found`);
+
+    if (kitObjects.length === 0) {
       this.warn(`DataPackageKitDefinition "${developerName}" has no components defined.`);
     }
+
+    // ── 3. Read DataSourceBundleDefinition for bundle objects ───────────────
+    const bundleNames = kitObjects
+      .filter(o => o.Metadata?.referenceObjectType === 'DataSourceBundleDefinition')
+      .map(o => o.Metadata.referenceObjectName);
+
+    const bundleDefMap = new Map<string, string>();
+
+    if (bundleNames.length > 0) {
+      this.spinner.start('Reading DataSourceBundleDefinitions');
+      const raw = await connection.metadata.read('DataSourceBundleDefinition' as never, bundleNames);
+      const bundleDefs = (Array.isArray(raw) ? raw : [raw]) as DataSourceBundleDefinitionMetadata[];
+      for (const b of bundleDefs) {
+        if (b?.fullName) bundleDefMap.set(b.fullName, b.dataPlatform);
+      }
+      this.spinner.stop('done');
+    }
+
+    // ── 4. Build deploy payload ─────────────────────────────────────────────
+    const components = mapComponents(kitObjects, bundleDefMap, orgId);
 
     const payload: DeployDataKitRequest = {
       inputs: [
         {
-          dataKitNameInput: definition.dataKitName,
-          ...(definition.dataSpace ? { dataKitDataSpaceInput: definition.dataSpace } : {}),
+          dataKitNameInput: developerName,
+          ...(definition.dataSpaceDefinitionDevName ? { dataKitDataSpaceInput: definition.dataSpaceDefinitionDevName } : {}),
           dataKitComponentsInput: components,
         },
       ],
@@ -92,8 +119,9 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
     this.log(JSON.stringify(payload, null, 2));
     this.log('');
 
-    // ── 3. Call the deploy API ───────────────────────────────────────────────
-    this.spinner.start(`Deploying DataKit "${definition.dataKitName}" to org "${org.getUsername() ?? orgId}"`);
+    // ── 5. Call the deploy API ──────────────────────────────────────────────
+    const dataKitLabel = definition.masterLabel ?? developerName;
+    this.spinner.start(`Deploying DataKit "${dataKitLabel}" to org "${org.getUsername() ?? orgId}"`);
 
     const response = await connection.request<DeployDataKitResponse[]>({
       method: 'POST',
@@ -107,7 +135,7 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
     if (!result.isSuccess) {
       this.spinner.stop('failed');
       const errorMsg = result.errors?.join(', ') ?? 'Unknown error';
-      throw messages.createError('error.deployFailed', [definition.dataKitName, errorMsg]);
+      throw messages.createError('error.deployFailed', [dataKitLabel, errorMsg]);
     }
 
     this.spinner.stop('done');
@@ -115,7 +143,7 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
     const interviewGuid = result.outputValues.Flow__InterviewGuid;
     this.log(`Interview GUID: ${interviewGuid}`);
 
-    // ── 4. Poll DataKitDeploymentLog until terminal status ───────────────────
+    // ── 6. Poll DataKitDeploymentLog until terminal status ──────────────────
     this.spinner.start('Waiting for deployment to complete...');
 
     const { status, timedOut, errorMessage } = await pollDeploymentStatus(connection, interviewGuid, waitDuration);
@@ -123,22 +151,16 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
     this.spinner.stop(timedOut ? 'timed out' : TERMINAL_FAILURE.has(status) ? 'failed' : 'done');
 
     if (timedOut) {
-      this.warn(messages.getMessage('warning.deployTimeout', [definition.dataKitName, interviewGuid]));
-      return { developerName, dataKitName: definition.dataKitName, orgId, interviewGuid, interviewStatus: 'InProgress' };
+      this.warn(messages.getMessage('warning.deployTimeout', [dataKitLabel, interviewGuid]));
+      return { developerName, dataKitName: dataKitLabel, orgId, interviewGuid, interviewStatus: 'InProgress' };
     }
 
     if (TERMINAL_FAILURE.has(status)) {
-      throw messages.createError('error.deployFailed', [definition.dataKitName, errorMessage ?? 'Unknown error']);
+      throw messages.createError('error.deployFailed', [dataKitLabel, errorMessage ?? 'Unknown error']);
     }
 
-    this.log(messages.getMessage('success', [definition.dataKitName, org.getUsername() ?? orgId]));
+    this.log(messages.getMessage('success', [dataKitLabel, org.getUsername() ?? orgId]));
 
-    return {
-      developerName,
-      dataKitName: definition.dataKitName,
-      orgId,
-      interviewGuid,
-      interviewStatus: status,
-    };
+    return { developerName, dataKitName: dataKitLabel, orgId, interviewGuid, interviewStatus: status };
   }
 }
