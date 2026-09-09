@@ -71,21 +71,18 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
 
     this.spinner.stop('done');
 
-    // ── 2. SOQL to find kit object names, then Metadata API read ────────────
+    // ── 2. Metadata API list + batched read for DataPackageKitObjects ────────
     this.spinner.start('Reading DataPackageKitObjects');
 
-    const soqlResult = await connection.query<{ DeveloperName: string }>(
-      `SELECT DeveloperName FROM DataPackageKitObject WHERE ParentDataPackageKitDefinition.DeveloperName = '${developerName}'`
-    );
-    const kitObjectNames = soqlResult.records.map(r => r.DeveloperName);
+    const listed = await connection.metadata.list([{ type: 'DataPackageKitObject' }]);
+    const allNames = listed ? (Array.isArray(listed) ? listed : [listed]).map((e: { fullName: string }) => e.fullName) : [];
 
     let kitObjects: DataPackageKitObjectRecord[] = [];
-    if (kitObjectNames.length > 0) {
-      const BATCH_SIZE = 10;
-      for (let i = 0; i < kitObjectNames.length; i += BATCH_SIZE) {
-        const raw = await connection.metadata.read('DataPackageKitObject' as never, kitObjectNames.slice(i, i + BATCH_SIZE));
-        kitObjects.push(...((Array.isArray(raw) ? raw : [raw]) as DataPackageKitObjectRecord[]));
-      }
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < allNames.length; i += BATCH_SIZE) {
+      const raw = await connection.metadata.read('DataPackageKitObject' as never, allNames.slice(i, i + BATCH_SIZE));
+      const batch = (Array.isArray(raw) ? raw : [raw]) as DataPackageKitObjectRecord[];
+      kitObjects.push(...batch.filter(r => r.parentDataPackageKitDefinitionName === developerName));
     }
 
     this.spinner.stop(`${kitObjects.length} found`);
