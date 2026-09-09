@@ -1,7 +1,7 @@
 import { SfCommand, Flags } from '@salesforce/sf-plugins-core';
 import { Messages, Org } from '@salesforce/core';
 import { Duration } from '@salesforce/kit';
-import { pollDeploymentStatus, TERMINAL_FAILURE } from '../../../lib/deployPoller.js';
+import { pollDeploymentStatus, TERMINAL_FAILURE } from '../../../helpers/deployPoller.js';
 
 Messages.importMessagesDirectoryFromMetaUrl(import.meta.url);
 const messages = Messages.loadMessages('@salesforce/plugin-datakit', 'datakit.deploy.report');

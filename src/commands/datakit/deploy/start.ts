@@ -1,8 +1,8 @@
 import { SfCommand, Flags } from '@salesforce/sf-plugins-core';
 import { Messages, Org } from '@salesforce/core';
 import { Duration } from '@salesforce/kit';
-import { mapComponents } from '../../../lib/componentMapper.js';
-import { pollDeploymentStatus, TERMINAL_FAILURE } from '../../../lib/deployPoller.js';
+import { mapComponents } from '../../../helpers/componentMapper.js';
+import { pollDeploymentStatus, TERMINAL_FAILURE } from '../../../helpers/deployPoller.js';
 import {
   DataPackageDefinitionMetadata,
   DeployDataKitRequest,
