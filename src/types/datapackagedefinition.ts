@@ -148,8 +148,8 @@ export interface DeployDataKitRequest {
 
 // Record returned when polling sfdatakit__DataKitDeploymentLog__c
 export interface DataKitDeploymentLogRecord {
-  sfdatakit__Status__c: string;
-  sfdatakit__ErrorMessage__c?: string;
+  DeploymentStatus: string;
+  DeploymentError?: string;
 }
 
 // Deploy API response

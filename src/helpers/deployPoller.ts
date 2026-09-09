@@ -25,13 +25,13 @@ export async function pollDeploymentStatus(
     timeoutErrorName: 'DeployTimeoutError',
     poll: async (): Promise<StatusResult> => {
       const { records } = await connection.query<DataKitDeploymentLogRecord>(
-        `SELECT sfdatakit__Status__c, sfdatakit__ErrorMessage__c FROM sfdatakit__DataKitDeploymentLog__c WHERE sfdatakit__InterviewGuid__c = '${interviewGuid}' LIMIT 1`
+        `SELECT DeploymentStatus, DeploymentError FROM DataKitDeploymentLog WHERE FlowInterviewIdentifier = '${interviewGuid}' LIMIT 1`
       );
 
       if (records.length === 0) return { completed: false };
 
-      status = records[0].sfdatakit__Status__c;
-      errorMessage = records[0].sfdatakit__ErrorMessage__c;
+      status = records[0].DeploymentStatus;
+      errorMessage = records[0].DeploymentError;
 
       return { completed: TERMINAL_SUCCESS.has(status) || TERMINAL_FAILURE.has(status) };
     },
