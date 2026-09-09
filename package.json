@@ -1,0 +1,53 @@
+{
+  "name": "@salesforce/plugin-datakit",
+  "version": "0.1.0",
+  "description": "Salesforce CLI plugin for DataKit operations",
+  "author": "Salesforce",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "/lib",
+    "/messages",
+    "/oclif.manifest.json"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf lib oclif.manifest.json",
+    "compile": "tsc -p tsconfig.json",
+    "prepack": "npm run build && oclif manifest",
+    "postpack": "rm -f oclif.manifest.json",
+    "lint": "eslint src --ext .ts",
+    "postinstall": "node -e \"try { require('@oclif/dev-cli').amendPluginShortcuts() } catch(e) {}\""
+  },
+  "dependencies": {
+    "@oclif/core": "^4",
+    "@salesforce/core": "^8",
+    "@salesforce/sf-plugins-core": "^11"
+  },
+  "devDependencies": {
+    "@oclif/dev-cli": "^1",
+    "@salesforce/cli-plugins-testkit": "^5",
+    "@types/node": "^18",
+    "oclif": "^3",
+    "typescript": "^5"
+  },
+  "oclif": {
+    "commands": "./lib/commands",
+    "bin": "sf",
+    "topicSeparator": " ",
+    "topics": {
+      "datakit": {
+        "description": "Commands for DataKit operations"
+      },
+      "datakit deploy": {
+        "description": "Commands for deploying DataKit objects"
+      }
+    },
+    "flexibleTaxonomy": true
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
