@@ -2,7 +2,7 @@ import { Connection, PollingClient, StatusResult } from '@salesforce/core';
 import { Duration } from '@salesforce/kit';
 import { DataKitDeploymentLogRecord } from '../types/datapackagedefinition.js';
 
-export const TERMINAL_SUCCESS = new Set(['Completed']);
+export const TERMINAL_SUCCESS = new Set(['Completed', 'Successful']);
 export const TERMINAL_FAILURE = new Set(['Failed', 'Error']);
 
 export type PollResult = {
@@ -25,7 +25,7 @@ export async function pollDeploymentStatus(
     timeoutErrorName: 'DeployTimeoutError',
     poll: async (): Promise<StatusResult> => {
       const { records } = await connection.query<DataKitDeploymentLogRecord>(
-        `SELECT DeploymentStatus, DeploymentError FROM DataKitDeploymentLog WHERE FlowInterviewIdentifier = '${interviewGuid}' LIMIT 1`
+        `SELECT DeploymentStatus, DeploymentError FROM DataKitDeploymentLog WHERE FlowInterviewIdentifier = '${interviewGuid}' AND DeployJob != null LIMIT 1`
       );
 
       if (records.length === 0) return { completed: false };
