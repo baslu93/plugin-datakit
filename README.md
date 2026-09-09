@@ -97,4 +97,4 @@ EXAMPLES
 
 ## License
 
-This plugin is licensed under the [Apache License 2.0](LICENSE).
+This plugin is licensed under the [Apache License 2.0](LICENSE.txt).
