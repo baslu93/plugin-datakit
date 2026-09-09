@@ -43,7 +43,7 @@ export function mapComponents(
   const components: DeployComponentInput[] = [];
 
   for (const obj of kitObjects) {
-    const { referenceObjectType, referenceObjectName } = obj.Metadata;
+    const { referenceObjectType, referenceObjectName } = obj;
 
     switch (referenceObjectType) {
       case 'DataSourceBundleDefinition':

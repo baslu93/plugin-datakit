@@ -4,13 +4,11 @@ export interface DataPackageDefinitionMetadata {
   dataSpaceDefinitionDevName?: string;
 }
 
-export interface DataPackageKitObjectMetadata {
+export interface DataPackageKitObjectRecord {
+  fullName: string;
+  parentDataPackageKitDefinitionName: string;
   referenceObjectName: string;
   referenceObjectType: string;
-}
-
-export interface DataPackageKitObjectRecord {
-  Metadata: DataPackageKitObjectMetadata;
 }
 
 export interface DataSourceBundleDefinitionMetadata {
