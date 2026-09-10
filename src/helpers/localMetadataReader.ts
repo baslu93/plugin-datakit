@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { join, basename } from 'node:path';
+import { basename } from 'node:path';
 import fg from 'fast-glob';
 import { parseStringPromise } from 'xml2js';
 import {
