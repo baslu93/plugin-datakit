@@ -43,7 +43,7 @@
         "description": "Commands for DataKit operations"
       },
       "datakit deploy": {
-        "description": "Commands for deploying DataKit objects"
+        "description": "Deploy DataKit objects to a Salesforce org, preview the deployment payload, and track deployment status"
       }
     },
     "flexibleTaxonomy": true
