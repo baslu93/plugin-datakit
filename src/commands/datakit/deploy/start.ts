@@ -1,10 +1,9 @@
 import { SfCommand, Flags } from '@salesforce/sf-plugins-core';
 import { Messages, Org } from '@salesforce/core';
 import { Duration } from '@salesforce/kit';
-import { mapComponents } from '../../../helpers/componentMapper.js';
 import { pollDeploymentStatus, TERMINAL_FAILURE } from '../../../helpers/deployPoller.js';
-import { readDefinition, readKitObjects, readBundleDefinitions, readKitObjectTemplates } from '../../../helpers/localMetadataReader.js';
-import { DeployDataKitRequest, DeployDataKitResponse } from '../../../types/datapackagedefinition.js';
+import { buildDeployPayload } from '../../../helpers/payloadBuilder.js';
+import { DeployDataKitResponse } from '../../../types/datapackagedefinition.js';
 
 Messages.importMessagesDirectoryFromMetaUrl(import.meta.url);
 const messages = Messages.loadMessages('@salesforce/plugin-datakit', 'datakit.deploy.start');
@@ -60,85 +59,23 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
     const connection = org.getConnection(flags['api-version'] as string | undefined);
     const orgId = org.getOrgId();
 
-    // ── 1. Read DataPackageKitDefinition ───────────────────────────────────
-    this.spinner.start(`Reading DataPackageKitDefinition "${developerName}"`);
+    // ── 1. Build deploy payload from local metadata ────────────────────────
+    this.spinner.start('Reading metadata');
 
-    const definition = await readDefinition(sourcePath, developerName);
+    const built = await buildDeployPayload(sourcePath, developerName);
 
-    if (!definition) {
+    if (!built) {
       this.spinner.stop('not found');
       throw messages.createError('error.datakitNotFound', [developerName, sourcePath]);
     }
 
-    this.spinner.stop('done');
+    this.spinner.stop(`${built.kitObjectCount} components`);
 
-    // ── 2. Read DataPackageKitObjects and sort by deploymentOrder ──────────
-    this.spinner.start('Reading DataPackageKitObjects');
-
-    const kitObjects = await readKitObjects(sourcePath, developerName);
-
-    this.spinner.stop(`${kitObjects.length} found`);
-
-    if (kitObjects.length === 0) {
+    if (built.kitObjectCount === 0) {
       this.warn(`DataPackageKitDefinition "${developerName}" has no components defined.`);
     }
 
-    if (definition.deploymentOrder) {
-      try {
-        const order = JSON.parse(definition.deploymentOrder) as {
-          sequence?: Array<{ devName: string; type: string }>;
-        };
-        if (order.sequence && order.sequence.length > 0) {
-          const seqIndex = new Map(order.sequence.map((s, i) => [s.devName, i]));
-          kitObjects.sort((a, b) => {
-            const ai = seqIndex.get(a.referenceObjectName) ?? Infinity;
-            const bi = seqIndex.get(b.referenceObjectName) ?? Infinity;
-            return ai - bi;
-          });
-        }
-      } catch {
-        // malformed deploymentOrder — deploy in discovery order
-      }
-    }
-
-    // ── 3. Read bundle definitions and templates in parallel ───────────────
-    const bundleNames = kitObjects
-      .filter(o => o.referenceObjectType === 'DataSourceBundleDefinition')
-      .map(o => o.referenceObjectName);
-
-    const templateNames = kitObjects
-      .filter(o => o.referenceObjectType === 'DataKitObjectTemplate')
-      .map(o => o.referenceObjectName);
-
-    this.spinner.start('Reading component metadata');
-
-    const [bundleDefs, templates] = await Promise.all([
-      readBundleDefinitions(sourcePath, bundleNames),
-      readKitObjectTemplates(sourcePath, templateNames),
-    ]);
-
-    this.spinner.stop('done');
-
-    const bundleDefMap = new Map(bundleDefs.map(b => [b.fullName, b.dataPlatform]));
-    const templatePayloadMap = new Map(templates.map(t => [t.fullName, t.entityPayload]));
-
-    // ── 4. Build deploy payload ─────────────────────────────────────────────
-    const components = mapComponents(kitObjects, bundleDefMap, templatePayloadMap);
-
-    const payload: DeployDataKitRequest = {
-      inputs: [
-        {
-          dataKitNameInput: developerName,
-          ...(definition.dataSpaceDefinitionDevName ? { dataKitDataSpaceInput: definition.dataSpaceDefinitionDevName } : {}),
-          dataKitComponentsInput: components,
-        },
-      ],
-    };
-
-    this.log('');
-    this.log('Deploying with payload:');
-    this.log(JSON.stringify(payload, null, 2));
-    this.log('');
+    const { payload, definition } = built;
 
     // ── 5. Call the deploy API ──────────────────────────────────────────────
     const dataKitLabel = definition.masterLabel ?? developerName;

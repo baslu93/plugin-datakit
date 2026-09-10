@@ -35,8 +35,35 @@ npm run build
 <!-- tocstop -->
 
 <!-- commands -->
+* [`sf datakit deploy preview`](#sf-datakit-deploy-preview)
 * [`sf datakit deploy report`](#sf-datakit-deploy-report)
 * [`sf datakit deploy start`](#sf-datakit-deploy-start)
+
+## `sf datakit deploy preview`
+
+Generate the deploy payload for a DataKit without deploying it.
+
+```
+USAGE
+  $ sf datakit deploy preview -n <value> -p <value>
+
+FLAGS
+  -n, --developer-name=<value>  (required) Developer name of the DataPackageKitDefinition to preview.
+  -p, --source-path=<value>     (required) Path to the local directory containing the DataKit metadata
+                                (dataPackageKitDefinitions, DataPackageKitObjects, dataSourceBundleDefinitions).
+
+DESCRIPTION
+  Generate the deploy payload for a DataKit without deploying it.
+
+  Reads the DataPackageKitDefinition, DataPackageKitObjects, and DataSourceBundleDefinitions from a local metadata
+  directory and prints the JSON payload that would be sent to the sfdatakit__DeployDataKitComponents flow API. Use this
+  to validate the payload against the debug log produced when deploying the same DataKit from the org.
+
+EXAMPLES
+  Preview the deploy payload for a DataKit:
+
+    $ sf datakit deploy preview --developer-name MyDataKit --source-path ./force-app
+```
 
 ## `sf datakit deploy report`
 
@@ -79,8 +106,9 @@ FLAGS
 DESCRIPTION
   Deploy a DataKit to the target org.
 
-  Reads a DataPackageKitDefinition by developer name via the Metadata API, builds the component payload, and calls the
-  sfdatakit__DeployDataKitComponents flow API to deploy all components to the connected Salesforce org.
+  Reads the DataPackageKitDefinition, DataPackageKitObjects, and DataSourceBundleDefinitions from a local metadata
+  directory, builds the component payload, and calls the sfdatakit__DeployDataKitComponents flow API to deploy all
+  components to the connected Salesforce org.
 
 EXAMPLES
   Deploy a DataKit to the default org:
