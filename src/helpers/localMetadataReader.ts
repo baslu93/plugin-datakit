@@ -17,11 +17,10 @@ export async function readDefinition(
   sourcePath: string,
   developerName: string
 ): Promise<DataPackageDefinitionMetadata | null> {
-  const files = await fg(`**/dataPackageKitDefinitions/${developerName}.dataPackageKitDefinition-meta.xml`, {
-    cwd: sourcePath,
-    absolute: true,
-    caseSensitiveMatch: false,
-  });
+  const files = await fg([
+    `**/dataPackageKitDefinitions/${developerName}.dataPackageKitDefinition-meta.xml`,
+    `**/dataPackageKitDefinitions/${developerName}.dataPackageKitDefinition`,
+  ], { cwd: sourcePath, absolute: true, caseSensitiveMatch: false });
 
   if (files.length === 0) return null;
 
@@ -39,11 +38,10 @@ export async function readKitObjects(
   sourcePath: string,
   developerName: string
 ): Promise<DataPackageKitObjectRecord[]> {
-  const files = await fg('**/DataPackageKitObjects/*.DataPackageKitObject-meta.xml', {
-    cwd: sourcePath,
-    absolute: true,
-    caseSensitiveMatch: false,
-  });
+  const files = await fg([
+    '**/DataPackageKitObjects/*.DataPackageKitObject-meta.xml',
+    '**/DataPackageKitObjects/*.DataPackageKitObject',
+  ], { cwd: sourcePath, absolute: true, caseSensitiveMatch: false });
 
   const records: DataPackageKitObjectRecord[] = [];
 
@@ -52,7 +50,7 @@ export async function readKitObjects(
     const obj = parsed['DataPackageKitObject'] as Record<string, string>;
 
     if (obj?.parentDataPackageKitDefinitionName === developerName) {
-      const fullName = basename(file).replace('.DataPackageKitObject-meta.xml', '');
+      const fullName = basename(file).replace('.DataPackageKitObject-meta.xml', '').replace('.DataPackageKitObject', '');
       records.push({
         fullName,
         parentDataPackageKitDefinitionName: obj.parentDataPackageKitDefinitionName,
@@ -72,11 +70,10 @@ export async function readBundleDefinitions(
   const results: DataSourceBundleDefinitionMetadata[] = [];
 
   for (const name of bundleNames) {
-    const files = await fg(`**/dataSourceBundleDefinitions/${name}.dataSourceBundleDefinition-meta.xml`, {
-      cwd: sourcePath,
-      absolute: true,
-      caseSensitiveMatch: false,
-    });
+    const files = await fg([
+      `**/dataSourceBundleDefinitions/${name}.dataSourceBundleDefinition-meta.xml`,
+      `**/dataSourceBundleDefinitions/${name}.dataSourceBundleDefinition`,
+    ], { cwd: sourcePath, absolute: true, caseSensitiveMatch: false });
 
     if (files.length === 0) continue;
 

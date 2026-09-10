@@ -42,7 +42,7 @@ No target org specified and no default org found. Use --target-org or set a defa
 
 # error.datakitNotFound
 
-DataPackageKitDefinition with developer name "%s" not found in org "%s".
+DataPackageKitDefinition with developer name "%s" not found in source path "%s".
 
 # error.deployFailed
 
