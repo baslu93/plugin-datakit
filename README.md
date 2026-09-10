@@ -35,9 +35,43 @@ npm run build
 <!-- tocstop -->
 
 <!-- commands -->
+* [`sf datakit clean`](#sf-datakit-clean)
 * [`sf datakit deploy preview`](#sf-datakit-deploy-preview)
 * [`sf datakit deploy report`](#sf-datakit-deploy-report)
 * [`sf datakit deploy start`](#sf-datakit-deploy-start)
+
+## `sf datakit clean`
+
+Clean a DataKit by removing generated fields from its DLM objects.
+
+```
+USAGE
+  $ sf datakit clean -p <value> [-n <value>]
+
+FLAGS
+  -n, --developer-name=<value>  Developer name of the DataPackageKitDefinition whose DLM objects should be cleaned. If
+                                omitted, all __dlm objects under the source path are cleaned.
+  -p, --source-path=<value>     (required) Path to the local directory containing the DataKit metadata.
+
+DESCRIPTION
+  Clean a DataKit by removing generated fields from its DLM objects.
+
+  Deletes KeyQualifier fields and rel_<number>_end relationship fields from the DLM object field files under the source
+  path. Also checks all dataKitObjectTemplate entityPayload JSON for any references to the removed fields and strips
+  those objects. Use this before deploying to a target org when those generated fields are not required.
+
+  See https://help.salesforce.com/s/articleView?id=005224006&type=1 for the Salesforce guidance this command is based
+  on.
+
+EXAMPLES
+  Clean a specific DataKit:
+
+    $ sf datakit clean --developer-name MyDataKit --source-path ./force-app
+
+  Clean all DLM objects under a path:
+
+    $ sf datakit clean --source-path ./force-app
+```
 
 ## `sf datakit deploy preview`
 
