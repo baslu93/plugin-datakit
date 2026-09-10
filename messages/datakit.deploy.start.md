@@ -4,11 +4,15 @@ Deploy a DataKit to the target org.
 
 # description
 
-Reads a DataPackageKitDefinition by developer name via the Metadata API, builds the component payload, and calls the sfdatakit__DeployDataKitComponents flow API to deploy all components to the connected Salesforce org.
+Reads the DataPackageKitDefinition, DataPackageKitObjects, and DataSourceBundleDefinitions from a local metadata directory, builds the component payload, and calls the sfdatakit__DeployDataKitComponents flow API to deploy all components to the connected Salesforce org.
 
 # flags.developer-name.summary
 
 Developer name of the DataPackageKitDefinition to deploy.
+
+# flags.source-path.summary
+
+Path to the local directory containing the DataKit metadata (dataPackageKitDefinitions, DataPackageKitObjects, dataSourceBundleDefinitions).
 
 # flags.target-org.summary
 

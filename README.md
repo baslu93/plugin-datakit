@@ -65,11 +65,13 @@ Deploy a DataKit to the target org.
 
 ```
 USAGE
-  $ sf datakit deploy start -n <value> [-o <value>] [--api-version <value>] [-w <value>]
+  $ sf datakit deploy start -n <value> -p <value> [-o <value>] [--api-version <value>] [-w <value>]
 
 FLAGS
-  -n, --developer-name=<value>  (required) Developer name of the DataPackageDefinition to deploy.
+  -n, --developer-name=<value>  (required) Developer name of the DataPackageKitDefinition to deploy.
   -o, --target-org=<value>      Username or alias of the target org.
+  -p, --source-path=<value>     (required) Path to the local directory containing the DataKit metadata
+                                (dataPackageKitDefinitions, DataPackageKitObjects, dataSourceBundleDefinitions).
   -w, --wait=<value>            [default: 10 minutes] Number of minutes to wait for the deployment to complete before
                                 timing out.
   --api-version=<value>         Override the api version used for api requests made by this command
@@ -77,7 +79,7 @@ FLAGS
 DESCRIPTION
   Deploy a DataKit to the target org.
 
-  Reads a DataPackageDefinition by developer name via the Metadata API, builds the component payload, and calls the
+  Reads a DataPackageKitDefinition by developer name via the Metadata API, builds the component payload, and calls the
   sfdatakit__DeployDataKitComponents flow API to deploy all components to the connected Salesforce org.
 
 EXAMPLES

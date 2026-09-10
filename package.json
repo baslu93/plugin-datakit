@@ -30,6 +30,7 @@
     "@oclif/dev-cli": "^1",
     "@salesforce/cli-plugins-testkit": "^5",
     "@types/node": "^18",
+    "@types/xml2js": "^0.4.14",
     "oclif": "^3",
     "typescript": "^5"
   },

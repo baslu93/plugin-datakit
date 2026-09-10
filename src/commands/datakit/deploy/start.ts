@@ -3,13 +3,8 @@ import { Messages, Org } from '@salesforce/core';
 import { Duration } from '@salesforce/kit';
 import { mapComponents } from '../../../helpers/componentMapper.js';
 import { pollDeploymentStatus, TERMINAL_FAILURE } from '../../../helpers/deployPoller.js';
-import {
-  DataPackageDefinitionMetadata,
-  DataPackageKitObjectRecord,
-  DataSourceBundleDefinitionMetadata,
-  DeployDataKitRequest,
-  DeployDataKitResponse,
-} from '../../../types/datapackagedefinition.js';
+import { readDefinition, readKitObjects, readBundleDefinitions } from '../../../helpers/localMetadataReader.js';
+import { DeployDataKitRequest, DeployDataKitResponse } from '../../../types/datapackagedefinition.js';
 
 Messages.importMessagesDirectoryFromMetaUrl(import.meta.url);
 const messages = Messages.loadMessages('@salesforce/plugin-datakit', 'datakit.deploy.start');
@@ -35,6 +30,12 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
       char: 'n',
       required: true,
     }),
+    'source-path': Flags.directory({
+      summary: messages.getMessage('flags.source-path.summary'),
+      char: 'p',
+      required: true,
+      exists: true,
+    }),
     'target-org': Flags.optionalOrg({
       summary: messages.getMessage('flags.target-org.summary'),
     }),
@@ -49,41 +50,39 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
   };
 
   public async run(): Promise<DatakitDeployStartResult> {
-    type ParsedFlags = { 'developer-name': string; 'target-org': Org | undefined; 'api-version': string | undefined; wait: Duration };
+    type ParsedFlags = {
+      'developer-name': string;
+      'source-path': string;
+      'target-org': Org | undefined;
+      'api-version': string | undefined;
+      wait: Duration;
+    };
     const { flags } = await this.parse(DatakitDeployStart) as { flags: ParsedFlags };
 
     const org = flags['target-org'];
     if (!org) throw messages.createError('error.noTargetOrg');
     const developerName = flags['developer-name'];
+    const sourcePath = flags['source-path'];
     const waitDuration = flags['wait'];
     const connection = org.getConnection(flags['api-version']);
     const orgId = org.getOrgId();
 
-    // ── 1. Read DataPackageKitDefinition ────────────────────────────────────
+    // ── 1. Read DataPackageKitDefinition from local metadata ────────────────
     this.spinner.start(`Reading DataPackageKitDefinition "${developerName}"`);
 
-    const [definition] = await connection.metadata.read('DataPackageKitDefinition' as never, [developerName]) as DataPackageDefinitionMetadata[];
+    const definition = await readDefinition(sourcePath, developerName);
 
-    if (!definition?.fullName) {
+    if (!definition) {
       this.spinner.stop('not found');
-      throw messages.createError('error.datakitNotFound', [developerName, org.getUsername() ?? orgId]);
+      throw messages.createError('error.datakitNotFound', [developerName, sourcePath]);
     }
 
     this.spinner.stop('done');
 
-    // ── 2. Metadata API list + batched read for DataPackageKitObjects ────────
+    // ── 2. Read DataPackageKitObjects from local metadata ───────────────────
     this.spinner.start('Reading DataPackageKitObjects');
 
-    const listed = await connection.metadata.list([{ type: 'DataPackageKitObject' }]);
-    const allNames = listed ? (Array.isArray(listed) ? listed : [listed]).map((e: { fullName: string }) => e.fullName) : [];
-
-    let kitObjects: DataPackageKitObjectRecord[] = [];
-    const BATCH_SIZE = 10;
-    for (let i = 0; i < allNames.length; i += BATCH_SIZE) {
-      const raw = await connection.metadata.read('DataPackageKitObject' as never, allNames.slice(i, i + BATCH_SIZE));
-      const batch = (Array.isArray(raw) ? raw : [raw]) as DataPackageKitObjectRecord[];
-      kitObjects.push(...batch.filter(r => r.parentDataPackageKitDefinitionName === developerName));
-    }
+    const kitObjects = await readKitObjects(sourcePath, developerName);
 
     this.spinner.stop(`${kitObjects.length} found`);
 
@@ -91,7 +90,7 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
       this.warn(`DataPackageKitDefinition "${developerName}" has no components defined.`);
     }
 
-    // ── 3. Read DataSourceBundleDefinition for bundle objects ───────────────
+    // ── 3. Read DataSourceBundleDefinitions from local metadata ────────────
     const bundleNames = kitObjects
       .filter(o => o.referenceObjectType === 'DataSourceBundleDefinition')
       .map(o => o.referenceObjectName);
@@ -100,10 +99,9 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
 
     if (bundleNames.length > 0) {
       this.spinner.start('Reading DataSourceBundleDefinitions');
-      const raw = await connection.metadata.read('DataSourceBundleDefinition' as never, bundleNames);
-      const bundleDefs = (Array.isArray(raw) ? raw : [raw]) as DataSourceBundleDefinitionMetadata[];
+      const bundleDefs = await readBundleDefinitions(sourcePath, bundleNames);
       for (const b of bundleDefs) {
-        if (b?.fullName) bundleDefMap.set(b.fullName, b.dataPlatform);
+        bundleDefMap.set(b.fullName, b.dataPlatform);
       }
       this.spinner.stop('done');
     }
