@@ -1,33 +1,30 @@
 import { DataPackageKitObjectRecord, DeployComponentInput } from '../types/datapackagedefinition.js';
 
-function mapBundle(bundleName: string, dataPlatform: string, orgId: string): DeployComponentInput {
-  if (dataPlatform === 'Salesforce_Sales_and_Service_Cloud') {
+// dataPlatform (from DataSourceBundleDefinition) → connectorType (deploy API)
+const CONNECTOR_TYPE: Record<string, string> = {
+  Salesforce_Sales_and_Service_Cloud: 'CRM',
+};
+
+function mapBundle(bundleName: string, dataPlatform: string): DeployComponentInput {
+  const connectorType = CONNECTOR_TYPE[dataPlatform] ?? 'MORECONNECTORS';
+
+  if (connectorType === 'CRM') {
     return {
       componentType: 'DataStreamBundle',
       bundleConfig: {
-        connectorType: 'CRM',
+        connectorType,
         bundleName,
         forceNoRefresh: false,
-        bundleCRMConfig: { orgId },
+        // orgId is "ignore" for 1:1 orgs; multi-org companion org ID is not derivable from local metadata
+        bundleCRMConfig: { orgId: 'ignore' },
       },
     };
   }
-  if (dataPlatform === 'UploadedFiles') {
-    return {
-      componentType: 'DataStreamBundle',
-      bundleConfig: {
-        connectorType: 'MORECONNECTORS',
-        bundleName,
-        forceNoRefresh: false,
-        bundleConnectorFrameworkConfig: { connectionName: 'UploadedFiles' },
-      },
-    };
-  }
-  // Generic connector framework — use dataPlatform as the connection name
+
   return {
     componentType: 'DataStreamBundle',
     bundleConfig: {
-      connectorType: 'MORECONNECTORS',
+      connectorType,
       bundleName,
       forceNoRefresh: false,
       bundleConnectorFrameworkConfig: { connectionName: dataPlatform },
@@ -35,10 +32,28 @@ function mapBundle(bundleName: string, dataPlatform: string, orgId: string): Dep
   };
 }
 
+function mapTemplate(name: string, payload: Record<string, string>): DeployComponentInput | null {
+  const type = payload['type'];
+  switch (type) {
+    case 'DLO':
+      return {
+        componentType: 'DataLakeObject',
+        dloConfig: { apiName: payload['developerName'] ?? name },
+      };
+    case 'SemanticModel':
+      return {
+        componentType: 'SemanticModel',
+        semanticModelConfig: { apiName: payload['developerName'] ?? payload['apiName'] ?? name },
+      };
+    default:
+      return null;
+  }
+}
+
 export function mapComponents(
   kitObjects: DataPackageKitObjectRecord[],
   bundleDefMap: Map<string, string>,
-  orgId: string
+  templatePayloadMap: Map<string, Record<string, string>>
 ): DeployComponentInput[] {
   const components: DeployComponentInput[] = [];
 
@@ -47,38 +62,16 @@ export function mapComponents(
 
     switch (referenceObjectType) {
       case 'DataSourceBundleDefinition':
-        components.push(mapBundle(referenceObjectName, bundleDefMap.get(referenceObjectName) ?? '', orgId));
+        components.push(mapBundle(referenceObjectName, bundleDefMap.get(referenceObjectName) ?? ''));
         break;
-      case 'DLO':
-        components.push({
-          componentType: 'DataLakeObject',
-          dloConfig: { dataSourceObjectDevName: referenceObjectName, apiName: referenceObjectName },
-        });
+      case 'DataKitObjectTemplate': {
+        const payload = templatePayloadMap.get(referenceObjectName);
+        if (payload) {
+          const component = mapTemplate(referenceObjectName, payload);
+          if (component) components.push(component);
+        }
         break;
-      case 'DataTransform':
-        components.push({
-          componentType: 'DataTransform',
-          dataTransformConfig: { dataTransformType: 'BATCH', dataTransformDevName: referenceObjectName, apiName: referenceObjectName },
-        });
-        break;
-      case 'CalculatedInsight':
-        components.push({
-          componentType: 'CalculatedInsight',
-          calculatedInsightsConfig: { apiName: referenceObjectName, publishInterval: 'NotScheduled' },
-        });
-        break;
-      case 'IdentityResolution':
-        components.push({
-          componentType: 'IdentityResolution',
-          identityResolutionConfig: { templateDevName: referenceObjectName },
-        });
-        break;
-      case 'DataGraph':
-        components.push({
-          componentType: 'DataGraph',
-          dataGraphConfig: { templateDevName: referenceObjectName },
-        });
-        break;
+      }
     }
   }
 

@@ -2,6 +2,7 @@ export interface DataPackageDefinitionMetadata {
   fullName: string;
   masterLabel: string;
   dataSpaceDefinitionDevName?: string;
+  deploymentOrder?: string;
 }
 
 export interface DataPackageKitObjectRecord {
@@ -14,6 +15,11 @@ export interface DataPackageKitObjectRecord {
 export interface DataSourceBundleDefinitionMetadata {
   fullName: string;
   dataPlatform: string;
+}
+
+export interface DataKitObjectTemplateRecord {
+  fullName: string;
+  entityPayload: Record<string, string>;
 }
 
 export type DeployComponentInput = Record<string, unknown>;

@@ -3,7 +3,7 @@ import { Messages, Org } from '@salesforce/core';
 import { Duration } from '@salesforce/kit';
 import { mapComponents } from '../../../helpers/componentMapper.js';
 import { pollDeploymentStatus, TERMINAL_FAILURE } from '../../../helpers/deployPoller.js';
-import { readDefinition, readKitObjects, readBundleDefinitions } from '../../../helpers/localMetadataReader.js';
+import { readDefinition, readKitObjects, readBundleDefinitions, readKitObjectTemplates } from '../../../helpers/localMetadataReader.js';
 import { DeployDataKitRequest, DeployDataKitResponse } from '../../../types/datapackagedefinition.js';
 
 Messages.importMessagesDirectoryFromMetaUrl(import.meta.url);
@@ -50,24 +50,17 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
   };
 
   public async run(): Promise<DatakitDeployStartResult> {
-    type ParsedFlags = {
-      'developer-name': string;
-      'source-path': string;
-      'target-org': Org | undefined;
-      'api-version': string | undefined;
-      wait: Duration;
-    };
-    const { flags } = await this.parse(DatakitDeployStart) as { flags: ParsedFlags };
+    const { flags } = await this.parse(DatakitDeployStart);
 
-    const org = flags['target-org'];
+    const org = flags['target-org'] as Org | undefined;
     if (!org) throw messages.createError('error.noTargetOrg');
-    const developerName = flags['developer-name'];
-    const sourcePath = flags['source-path'];
-    const waitDuration = flags['wait'];
-    const connection = org.getConnection(flags['api-version']);
+    const developerName = flags['developer-name'] as string;
+    const sourcePath = flags['source-path'] as string;
+    const waitDuration = flags['wait'] as Duration;
+    const connection = org.getConnection(flags['api-version'] as string | undefined);
     const orgId = org.getOrgId();
 
-    // ── 1. Read DataPackageKitDefinition from local metadata ────────────────
+    // ── 1. Read DataPackageKitDefinition ───────────────────────────────────
     this.spinner.start(`Reading DataPackageKitDefinition "${developerName}"`);
 
     const definition = await readDefinition(sourcePath, developerName);
@@ -79,7 +72,7 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
 
     this.spinner.stop('done');
 
-    // ── 2. Read DataPackageKitObjects from local metadata ───────────────────
+    // ── 2. Read DataPackageKitObjects and sort by deploymentOrder ──────────
     this.spinner.start('Reading DataPackageKitObjects');
 
     const kitObjects = await readKitObjects(sourcePath, developerName);
@@ -90,24 +83,47 @@ export default class DatakitDeployStart extends SfCommand<DatakitDeployStartResu
       this.warn(`DataPackageKitDefinition "${developerName}" has no components defined.`);
     }
 
-    // ── 3. Read DataSourceBundleDefinitions from local metadata ────────────
+    if (definition.deploymentOrder) {
+      try {
+        const order = JSON.parse(definition.deploymentOrder) as {
+          sequence?: Array<{ devName: string; type: string }>;
+        };
+        if (order.sequence && order.sequence.length > 0) {
+          const seqIndex = new Map(order.sequence.map((s, i) => [s.devName, i]));
+          kitObjects.sort((a, b) => {
+            const ai = seqIndex.get(a.referenceObjectName) ?? Infinity;
+            const bi = seqIndex.get(b.referenceObjectName) ?? Infinity;
+            return ai - bi;
+          });
+        }
+      } catch {
+        // malformed deploymentOrder — deploy in discovery order
+      }
+    }
+
+    // ── 3. Read bundle definitions and templates in parallel ───────────────
     const bundleNames = kitObjects
       .filter(o => o.referenceObjectType === 'DataSourceBundleDefinition')
       .map(o => o.referenceObjectName);
 
-    const bundleDefMap = new Map<string, string>();
+    const templateNames = kitObjects
+      .filter(o => o.referenceObjectType === 'DataKitObjectTemplate')
+      .map(o => o.referenceObjectName);
 
-    if (bundleNames.length > 0) {
-      this.spinner.start('Reading DataSourceBundleDefinitions');
-      const bundleDefs = await readBundleDefinitions(sourcePath, bundleNames);
-      for (const b of bundleDefs) {
-        bundleDefMap.set(b.fullName, b.dataPlatform);
-      }
-      this.spinner.stop('done');
-    }
+    this.spinner.start('Reading component metadata');
+
+    const [bundleDefs, templates] = await Promise.all([
+      readBundleDefinitions(sourcePath, bundleNames),
+      readKitObjectTemplates(sourcePath, templateNames),
+    ]);
+
+    this.spinner.stop('done');
+
+    const bundleDefMap = new Map(bundleDefs.map(b => [b.fullName, b.dataPlatform]));
+    const templatePayloadMap = new Map(templates.map(t => [t.fullName, t.entityPayload]));
 
     // ── 4. Build deploy payload ─────────────────────────────────────────────
-    const components = mapComponents(kitObjects, bundleDefMap, orgId);
+    const components = mapComponents(kitObjects, bundleDefMap, templatePayloadMap);
 
     const payload: DeployDataKitRequest = {
       inputs: [

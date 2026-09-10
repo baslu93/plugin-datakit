@@ -5,6 +5,7 @@ import { parseStringPromise } from 'xml2js';
 import {
   DataPackageDefinitionMetadata,
   DataPackageKitObjectRecord,
+  DataKitObjectTemplateRecord,
   DataSourceBundleDefinitionMetadata,
 } from '../types/datapackagedefinition.js';
 
@@ -31,6 +32,7 @@ export async function readDefinition(
     fullName: developerName,
     masterLabel: def.masterLabel ?? developerName,
     dataSpaceDefinitionDevName: def.dataSpaceDefinitionDevName,
+    deploymentOrder: def.deploymentOrder,
   };
 }
 
@@ -61,6 +63,38 @@ export async function readKitObjects(
   }
 
   return records;
+}
+
+export async function readKitObjectTemplates(
+  sourcePath: string,
+  names: string[]
+): Promise<DataKitObjectTemplateRecord[]> {
+  const results: DataKitObjectTemplateRecord[] = [];
+
+  for (const name of names) {
+    const files = await fg([
+      `**/dataKitObjectTemplates/${name}.dataKitObjectTemplate-meta.xml`,
+      `**/dataKitObjectTemplates/${name}.dataKitObjectTemplate`,
+    ], { cwd: sourcePath, absolute: true, caseSensitiveMatch: false });
+
+    if (files.length === 0) continue;
+
+    const parsed = await parseXml(files[0]);
+    const tmpl = parsed['DataKitObjectTemplate'] as Record<string, string>;
+
+    let entityPayload: Record<string, string> = {};
+    if (tmpl?.entityPayload) {
+      try {
+        entityPayload = JSON.parse(tmpl.entityPayload) as Record<string, string>;
+      } catch {
+        // unparseable payload — skip
+      }
+    }
+
+    results.push({ fullName: name, entityPayload });
+  }
+
+  return results;
 }
 
 export async function readBundleDefinitions(
