@@ -22,27 +22,12 @@ export interface DataKitObjectTemplateRecord {
   entityPayload: Record<string, string>;
 }
 
-export type DeployComponentInput = Record<string, unknown>;
-
-export interface DeployDataKitRequest {
-  inputs: Array<{
-    dataKitNameInput: string;
-    dataKitDataSpaceInput?: string;
-    dataKitComponentsInput: DeployComponentInput[];
-  }>;
+export interface DatakitDevopsDeployResponse {
+  jobId: string;
 }
 
-export interface DataKitDeploymentLogRecord {
-  DeploymentStatus: string;
-  DeploymentError?: string;
-}
-
-export interface DeployDataKitResponse {
-  actionName: string;
-  errors: string[] | null;
-  isSuccess: boolean;
-  outputValues: {
-    Flow__InterviewGuid: string;
-    Flow__InterviewStatus: string;
-  };
+export interface BackgroundOperationRecord {
+  Id: string;
+  Status: string;
+  Error?: string;
 }
