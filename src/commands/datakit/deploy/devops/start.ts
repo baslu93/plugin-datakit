@@ -5,7 +5,7 @@ import { pollBackgroundOperation, DEVOPS_TERMINAL_FAILURE } from '../../../../he
 import { DatakitDevopsDeployResponse } from '../../../../types/datapackagedefinition.js';
 
 Messages.importMessagesDirectoryFromMetaUrl(import.meta.url);
-const messages = Messages.loadMessages('@salesforce/plugin-datakit', 'datakit.deploy.devops.start');
+const messages = Messages.loadMessages('plugin-datakit', 'datakit.deploy.devops.start');
 
 export type DatakitDevopsStartResult = {
   developerName: string;

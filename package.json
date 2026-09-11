@@ -1,5 +1,5 @@
 {
-  "name": "@salesforce/plugin-datakit",
+  "name": "plugin-datakit",
   "version": "0.1.0",
   "description": "Salesforce CLI plugin for DataKit operations",
   "author": "Salesforce",

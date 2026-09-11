@@ -4,7 +4,7 @@ import { readKitObjects } from '../../helpers/localMetadataReader.js';
 import { cleanDataKit, CleanStats } from '../../helpers/datakitCleaner.js';
 
 Messages.importMessagesDirectoryFromMetaUrl(import.meta.url);
-const messages = Messages.loadMessages('@salesforce/plugin-datakit', 'datakit.clean');
+const messages = Messages.loadMessages('plugin-datakit', 'datakit.clean');
 
 export type DatakitCleanResult = CleanStats;
 
