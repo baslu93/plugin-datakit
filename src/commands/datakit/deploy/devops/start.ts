@@ -1,7 +1,7 @@
 import { SfCommand, Flags } from '@salesforce/sf-plugins-core';
 import { Messages, Org } from '@salesforce/core';
 import { Duration } from '@salesforce/kit';
-import { pollBackgroundOperation, DEVOPS_TERMINAL_FAILURE } from '../../../../helpers/deploymentStatusPoller.js';
+import { pollBackgroundOperation, TERMINAL_FAILURE } from '../../../../helpers/deploymentStatusPoller.js';
 import { DatakitDevopsDeployResponse } from '../../../../types/datapackagedefinition.js';
 
 Messages.importMessagesDirectoryFromMetaUrl(import.meta.url);
@@ -64,14 +64,14 @@ export default class DatakitDeployDevopsStart extends SfCommand<DatakitDevopsSta
 
     const { jobStatus, timedOut, errorMessage } = await pollBackgroundOperation(connection, jobId, waitDuration);
 
-    this.spinner.stop(timedOut ? 'timed out' : DEVOPS_TERMINAL_FAILURE.has(jobStatus) ? 'failed' : 'done');
+    this.spinner.stop(timedOut ? 'timed out' : TERMINAL_FAILURE.has(jobStatus) ? 'failed' : 'done');
 
     if (timedOut) {
       this.warn(messages.getMessage('warning.deployTimeout', [developerName, jobId]));
       return { developerName, jobId, jobStatus: 'InProgress' };
     }
 
-    if (DEVOPS_TERMINAL_FAILURE.has(jobStatus)) {
+    if (TERMINAL_FAILURE.has(jobStatus)) {
       throw messages.createError('error.deployFailed', [developerName, errorMessage ?? 'Unknown error']);
     }
 
